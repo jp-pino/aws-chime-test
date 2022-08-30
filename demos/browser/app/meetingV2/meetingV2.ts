@@ -454,12 +454,7 @@ export class DemoMeetingApp
 
   initParameters(): void {
     const meeting = new URL(window.location.href).searchParams.get('m');
-    if (meeting) {
-      (document.getElementById('inputMeeting') as HTMLInputElement).value = meeting;
-      (document.getElementById('inputName') as HTMLInputElement).focus();
-    } else {
-      (document.getElementById('inputMeeting') as HTMLInputElement).focus();
-    }
+    console.log(meeting);
   }
 
   async initVoiceFocus(): Promise<void> {
@@ -679,53 +674,6 @@ export class DemoMeetingApp
       } else {
         this.usingStereoMusicAudioProfile = false;
       }
-    });
-
-    document.getElementById('to-sip-flow').addEventListener('click', e => {
-      e.preventDefault();
-      this.switchToFlow('flow-sip-authenticate');
-    });
-
-    document.getElementById('form-sip-authenticate').addEventListener('submit', e => {
-      e.preventDefault();
-      this.meeting = (document.getElementById('sip-inputMeeting') as HTMLInputElement).value;
-      this.voiceConnectorId = (document.getElementById(
-        'voiceConnectorId'
-      ) as HTMLInputElement).value;
-
-      AsyncScheduler.nextTick(
-        async (): Promise<void> => {
-          this.showProgress('progress-authenticate');
-          const region = this.region || 'us-east-1';
-          try {
-            const response = await fetch(
-              `${DemoMeetingApp.BASE_URL}join?title=${encodeURIComponent(
-                this.meeting
-              )}&name=${encodeURIComponent(DemoMeetingApp.DID)}&region=${encodeURIComponent(
-                region
-              )}`,
-              {
-                method: 'POST',
-              }
-            );
-            const json = await response.json();
-            const joinToken = json.JoinInfo.Attendee.Attendee.JoinToken;
-            this.sipURI = `sip:${DemoMeetingApp.DID}@${this.voiceConnectorId};transport=tls;X-joinToken=${joinToken}`;
-            this.switchToFlow('flow-sip-uri');
-          } catch (error) {
-            (document.getElementById(
-              'failed-meeting'
-            ) as HTMLDivElement).innerText = `Meeting ID: ${this.meeting}`;
-            (document.getElementById('failed-meeting-error') as HTMLDivElement).innerText =
-              error.message;
-            this.switchToFlow('flow-failed-meeting');
-            return;
-          }
-          const sipUriElement = document.getElementById('sip-uri') as HTMLInputElement;
-          sipUriElement.value = this.sipURI;
-          this.hideProgress('progress-authenticate');
-        }
-      );
     });
 
     if (!this.areVideoFiltersSupported()) {
@@ -1327,11 +1275,12 @@ export class DemoMeetingApp
 
   getSupportedMediaRegions(): string[] {
     const supportedMediaRegions: string[] = [];
-    const mediaRegion = document.getElementById('inputRegion') as HTMLSelectElement;
-    for (let i = 0; i < mediaRegion.length; i++) {
-      supportedMediaRegions.push(mediaRegion.value);
-    }
     return supportedMediaRegions;
+    // const mediaRegion = document.getElementById('inputRegion') as HTMLSelectElement;
+    // for (let i = 0; i < mediaRegion.length; i++) {
+    //   supportedMediaRegions.push(mediaRegion.value);
+    // }
+    // return supportedMediaRegions;
   }
 
   async getNearestMediaRegion(): Promise<string> {
@@ -1356,13 +1305,13 @@ export class DemoMeetingApp
           const supportedMediaRegions: string[] = this.getSupportedMediaRegions();
           if (supportedMediaRegions.indexOf(nearestMediaRegion) === -1) {
             supportedMediaRegions.push(nearestMediaRegion);
-            const mediaRegionElement = document.getElementById('inputRegion') as HTMLSelectElement;
+            // const mediaRegionElement = document.getElementById('inputRegion') as HTMLSelectElement;
             const newMediaRegionOption = document.createElement('option');
             newMediaRegionOption.value = nearestMediaRegion;
             newMediaRegionOption.text = nearestMediaRegion + ' (' + nearestMediaRegion + ')';
-            mediaRegionElement.add(newMediaRegionOption, null);
+            // mediaRegionElement.add(newMediaRegionOption, null);
           }
-          (document.getElementById('inputRegion') as HTMLInputElement).value = nearestMediaRegion;
+          // (document.getElementById('inputRegion') as HTMLInputElement).value = nearestMediaRegion;
         } catch (error) {
           fatal(error);
           this.log('Default media region selected: ' + error.message);
@@ -1394,8 +1343,14 @@ export class DemoMeetingApp
   }
 
   private async getPrimaryMeetingCredentials(): Promise<MeetingSessionCredentials> {
-    // Use the same join endpoint, but point it to the provided primary meeting title and give us an arbitrarily different user name
-    const joinInfo = (await this.sendJoinRequest(this.primaryExternalMeetingId, `promoted-${this.name}`, this.region)).JoinInfo;
+    let joinInfo;
+    if ((document.getElementById("joinInfo") as HTMLTextAreaElement).value.length > 0) {
+      joinInfo = JSON.parse((document.getElementById("joinInfo") as HTMLTextAreaElement).value);
+    } else {
+      // Use the same join endpoint, but point it to the provided primary meeting title and give us an arbitrarily different user name
+      joinInfo = (await this.sendJoinRequest(this.primaryExternalMeetingId, `promoted-${this.name}`, this.region)).JoinInfo;
+    }
+    
     // To avoid duplicating code we reuse the constructor for `MeetingSessionConfiguration` which contains `MeetingSessionCredentials`
     // within it and properly does the parsing of the `chime::CreateAttendee` response
     const configuration = new MeetingSessionConfiguration(joinInfo.Meeting, joinInfo.Attendee);
@@ -2211,6 +2166,11 @@ export class DemoMeetingApp
     name: string,
     region: string,
     primaryExternalMeetingId?: string): Promise<any> {
+      console.log('JP:>>>>>>>>>')
+      console.log('JP:>>>>>>>>>meeting: ' + meeting)
+      console.log('JP:>>>>>>>>>name: ' + name)
+      console.log('JP:>>>>>>>>>region: ' + region)
+      console.log('JP:>>>>>>>>>primaryExternalMeetingId: ' + primaryExternalMeetingId)
     let uri = `${DemoMeetingApp.BASE_URL}join?title=${encodeURIComponent(
       meeting
     )}&name=${encodeURIComponent(name)}&region=${encodeURIComponent(region)}`
@@ -3371,8 +3331,12 @@ export class DemoMeetingApp
   }
 
   async authenticate(): Promise<string> {
-    this.joinInfo = (await this.sendJoinRequest(this.meeting, this.name, this.region, this.primaryExternalMeetingId)).JoinInfo;
-    this.region = this.joinInfo.Meeting.Meeting.MediaRegion;
+
+    if ((document.getElementById("joinInfo") as HTMLTextAreaElement).value.length > 0) {
+      this.joinInfo = JSON.parse((document.getElementById("joinInfo") as HTMLTextAreaElement).value);
+    }
+    
+    this.region = this.joinInfo.Meeting.MediaRegion;
     const configuration = new MeetingSessionConfiguration(this.joinInfo.Meeting, this.joinInfo.Attendee);
     await this.initializeMeetingSession(configuration);
     this.primaryExternalMeetingId = this.joinInfo.PrimaryExternalMeetingId
@@ -3557,9 +3521,12 @@ export class DemoMeetingApp
   }
 
   private redirectFromAuthentication(quickjoin: boolean = false): void {
-    this.meeting = (document.getElementById('inputMeeting') as HTMLInputElement).value;
-    this.name = (document.getElementById('inputName') as HTMLInputElement).value;
-    this.region = (document.getElementById('inputRegion') as HTMLInputElement).value;
+    if ((document.getElementById("joinInfo") as HTMLTextAreaElement).value.length > 0) {
+      this.joinInfo = JSON.parse((document.getElementById("joinInfo") as HTMLTextAreaElement).value);
+    }
+    this.meeting = this.joinInfo.Meeting.MeetingId;
+    this.name = this.joinInfo.Attendee.ExternalUserId;
+    this.region = this.joinInfo.Meeting.MediaRegion;
     this.enableSimulcast = (document.getElementById('simulcast') as HTMLInputElement).checked;
     this.enableEventReporting = (document.getElementById('event-reporting') as HTMLInputElement).checked;
     this.deleteOwnAttendeeToLeave = (document.getElementById('delete-attendee') as HTMLInputElement).checked;
